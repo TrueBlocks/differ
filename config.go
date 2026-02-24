@@ -7,13 +7,11 @@ import (
 )
 
 type config struct {
-	PathComponent string   `json:"pathComponent"`
 	AlwaysExclude []string `json:"alwaysExclude"`
 }
 
 func defaultConfig() config {
 	return config{
-		PathComponent: "Development",
 		AlwaysExclude: []string{".git"},
 	}
 }
@@ -44,9 +42,6 @@ func loadConfig() config {
 		return cfg
 	}
 
-	if fileCfg.PathComponent != "" {
-		cfg.PathComponent = fileCfg.PathComponent
-	}
 	if len(fileCfg.AlwaysExclude) > 0 {
 		cfg.AlwaysExclude = fileCfg.AlwaysExclude
 	}

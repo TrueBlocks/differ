@@ -9,7 +9,7 @@ import (
 
 type ignorer struct {
 	alwaysExclude map[string]bool
-	cache         map[string][]ignorePattern
+	patterns      map[string][]ignorePattern
 }
 
 type ignorePattern struct {
@@ -19,53 +19,62 @@ type ignorePattern struct {
 	anchored bool
 }
 
-func newIgnorer(alwaysExclude []string) *ignorer {
+func newIgnorer(alwaysExclude []string, sourceRoot string) *ignorer {
 	ae := make(map[string]bool)
 	for _, e := range alwaysExclude {
 		ae[e] = true
 	}
-	return &ignorer{
+	ig := &ignorer{
 		alwaysExclude: ae,
-		cache:         make(map[string][]ignorePattern),
+		patterns:      make(map[string][]ignorePattern),
 	}
+	ig.preload(sourceRoot)
+	return ig
 }
 
-func (ig *ignorer) isExcluded(path string, root string, isDir bool) bool {
-	name := filepath.Base(path)
+func (ig *ignorer) preload(root string) {
+	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			name := filepath.Base(path)
+			if ig.alwaysExclude[name] && path != root {
+				return filepath.SkipDir
+			}
+			rel, _ := filepath.Rel(root, path)
+			ig.loadGitignore(path, rel)
+			return nil
+		}
+		return nil
+	})
+}
+
+func (ig *ignorer) isExcluded(relPath string, isDir bool) bool {
+	name := filepath.Base(relPath)
 	if ig.alwaysExclude[name] {
 		return true
 	}
 
-	rel, err := filepath.Rel(root, path)
-	if err != nil {
-		return false
-	}
+	dirParts := strings.Split(filepath.Dir(relPath), string(os.PathSeparator))
 
-	parts := strings.Split(filepath.Dir(rel), string(os.PathSeparator))
-	current := root
-	for _, part := range parts {
+	dirs := []string{"."}
+	current := ""
+	for _, part := range dirParts {
 		if part == "." {
-			ig.loadGitignore(current)
-		} else {
-			current = filepath.Join(current, part)
-			ig.loadGitignore(current)
+			continue
 		}
+		if current == "" {
+			current = part
+		} else {
+			current = current + string(os.PathSeparator) + part
+		}
+		dirs = append(dirs, current)
 	}
-
-	ig.loadGitignore(filepath.Dir(filepath.Join(root, rel)))
 
 	excluded := false
-	current = root
-	dirs := []string{root}
-	for _, part := range parts {
-		if part != "." {
-			current = filepath.Join(current, part)
-			dirs = append(dirs, current)
-		}
-	}
-
 	for _, dir := range dirs {
-		patterns, ok := ig.cache[dir]
+		patterns, ok := ig.patterns[dir]
 		if !ok {
 			continue
 		}
@@ -73,7 +82,7 @@ func (ig *ignorer) isExcluded(path string, root string, isDir bool) bool {
 			if p.dirOnly && !isDir {
 				continue
 			}
-			if matchPattern(p, rel, name) {
+			if matchPattern(p, relPath, name) {
 				if p.negated {
 					excluded = false
 				} else {
@@ -86,14 +95,8 @@ func (ig *ignorer) isExcluded(path string, root string, isDir bool) bool {
 	return excluded
 }
 
-func (ig *ignorer) loadGitignore(dir string) {
-	if _, loaded := ig.cache[dir]; loaded {
-		return
-	}
-
-	ig.cache[dir] = nil
-
-	gitignorePath := filepath.Join(dir, ".gitignore")
+func (ig *ignorer) loadGitignore(absDir string, relDir string) {
+	gitignorePath := filepath.Join(absDir, ".gitignore")
 	f, err := os.Open(gitignorePath)
 	if err != nil {
 		return
@@ -129,7 +132,7 @@ func (ig *ignorer) loadGitignore(dir string) {
 	}
 
 	if len(patterns) > 0 {
-		ig.cache[dir] = patterns
+		ig.patterns[relDir] = patterns
 	}
 }
 
