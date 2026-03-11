@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 type fileEntry struct {
@@ -33,6 +35,7 @@ func walkTree(root string, ig *ignorer, label string) ([]fileEntry, error) {
 		if err != nil {
 			return nil
 		}
+		rel = norm.NFC.String(rel)
 
 		isDir := info.IsDir()
 		if ig.isExcluded(rel, isDir) {
