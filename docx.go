@@ -11,6 +11,11 @@ import (
 	"strings"
 )
 
+const (
+	maxHeaderFooter = 9
+	textChunkSize   = 80
+)
+
 type docxCategory int
 
 const (
@@ -166,7 +171,7 @@ func analyzeDocx(pathA, pathB string) docxResult {
 		"word/endnotes.xml":  true,
 		"word/comments.xml":  true,
 	}
-	for i := 1; i <= 9; i++ {
+	for i := 1; i <= maxHeaderFooter; i++ {
 		textContentFiles[fmt.Sprintf("word/header%d.xml", i)] = true
 		textContentFiles[fmt.Sprintf("word/footer%d.xml", i)] = true
 	}
@@ -262,8 +267,8 @@ func computeTextDiff(textA, textB, name string) []string {
 	linesB := strings.Split(textB, "\n")
 
 	if len(linesA) == 1 && len(linesB) == 1 {
-		linesA = splitIntoChunks(textA, 80)
-		linesB = splitIntoChunks(textB, 80)
+		linesA = splitIntoChunks(textA, textChunkSize)
+		linesB = splitIntoChunks(textB, textChunkSize)
 	}
 
 	var result []string

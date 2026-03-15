@@ -10,10 +10,21 @@ import (
 	"golang.org/x/term"
 )
 
+const (
+	minTermWidth     = 40
+	defaultTermWidth = 80
+	minTruncLen      = 3
+	minDetailCol     = 6
+	maxDetailCol     = 24
+	groupColWidth    = 18
+	fixedColOverhead = 29
+	minFileCol       = 10
+)
+
 func termWidth() int {
 	w, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || w < 40 {
-		return 80
+	if err != nil || w < minTermWidth {
+		return defaultTermWidth
 	}
 	return w
 }
@@ -22,10 +33,10 @@ func truncatePath(path string, maxLen int) string {
 	if len(path) <= maxLen {
 		return path
 	}
-	if maxLen <= 3 {
+	if maxLen <= minTruncLen {
 		return path[:maxLen]
 	}
-	return "..." + path[len(path)-(maxLen-3):]
+	return "..." + path[len(path)-(maxLen-minTruncLen):]
 }
 
 func formatEntry(e fileEntry, opts options) string {
@@ -137,22 +148,22 @@ func printDiffs(diffs []diffEntry, opts options) {
 	w := termWidth()
 
 	allDiffs := append(append(onlyA, onlyB...), changed...)
-	detailMax := 6
+	detailMax := minDetailCol
 	for _, d := range allDiffs {
 		s := detailString(d.details)
 		if len(s) > detailMax {
 			detailMax = len(s)
 		}
 	}
-	if detailMax > 24 {
-		detailMax = 24
+	if detailMax > maxDetailCol {
+		detailMax = maxDetailCol
 	}
 
-	groupMax := 18
+	groupMax := groupColWidth
 	// fixed: 2(pad) + 1(S) + 2 + detail + 2 + group + 2 + 8(sizeA) + 2 + 8(sizeB) + 2 = 47 + detail + group
-	fileMax := w - 29 - detailMax - groupMax
-	if fileMax < 10 {
-		fileMax = 10
+	fileMax := w - fixedColOverhead - detailMax - groupMax
+	if fileMax < minFileCol {
+		fileMax = minFileCol
 	}
 
 	header := fmt.Sprintf("  %s  %-*s  %-*s  %-*s  %8s  %8s",

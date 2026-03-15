@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+const (
+	exitOK       = 0
+	exitDiff     = 1
+	exitUsageErr = 2
+)
+
 type options struct {
 	useDate   bool
 	useHashes bool
@@ -20,18 +26,18 @@ func main() {
 	pathA, suffix, opts, err := parseArgs(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		os.Exit(2)
+		os.Exit(exitUsageErr)
 	}
 
 	pathB, err := computeMirrorPath(pathA, suffix)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		os.Exit(2)
+		os.Exit(exitUsageErr)
 	}
 
 	if _, err := os.Stat(pathB); os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Error: mirror path does not exist: %s\n", pathB)
-		os.Exit(2)
+		os.Exit(exitUsageErr)
 	}
 
 	ignorer := newIgnorer(cfg.AlwaysExclude, pathA)
@@ -39,26 +45,26 @@ func main() {
 	listA, err := walkTree(pathA, ignorer, "A", opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error walking %s: %s\n", pathA, err)
-		os.Exit(1)
+		os.Exit(exitDiff)
 	}
 
 	listB, err := walkTree(pathB, ignorer, "B", opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error walking %s: %s\n", pathB, err)
-		os.Exit(1)
+		os.Exit(exitDiff)
 	}
 
 	diffs := computeDiff(listA, listB, pathA, pathB, opts)
 	if len(diffs) == 0 {
 		fmt.Println("No differences found.")
-		os.Exit(0)
+		os.Exit(exitOK)
 	}
 
 	syncDocxNotText(diffs, pathA, pathB)
 	syncModes(diffs, pathA, pathB)
 
 	printDiffs(diffs, opts)
-	os.Exit(1)
+	os.Exit(exitDiff)
 }
 
 func parseArgs(args []string) (pathA string, suffix int, opts options, err error) {
