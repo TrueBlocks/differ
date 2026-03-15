@@ -23,7 +23,7 @@ type diffEntry struct {
 	docxDetails []docxFileDiff
 }
 
-func computeDiff(listA, listB []fileEntry, rootA, rootB string) []diffEntry {
+func computeDiff(listA, listB []fileEntry, rootA, rootB string, opts options) []diffEntry {
 	mapA := make(map[string]*fileEntry, len(listA))
 	for i := range listA {
 		mapA[listA[i].relPath] = &listA[i]
@@ -49,7 +49,7 @@ func computeDiff(listA, listB []fileEntry, rootA, rootB string) []diffEntry {
 			continue
 		}
 
-		changes, docxDets := compareEntries(mapA[a.relPath], b, rootA, rootB)
+		changes, docxDets := compareEntries(mapA[a.relPath], b, rootA, rootB, opts)
 		if len(changes) > 0 {
 			diffs = append(diffs, diffEntry{
 				kind:        diffChanged,
@@ -75,7 +75,7 @@ func computeDiff(listA, listB []fileEntry, rootA, rootB string) []diffEntry {
 	return diffs
 }
 
-func compareEntries(a, b *fileEntry, rootA, rootB string) ([]string, []docxFileDiff) {
+func compareEntries(a, b *fileEntry, rootA, rootB string, opts options) ([]string, []docxFileDiff) {
 	var changes []string
 	var docxDets []docxFileDiff
 
@@ -85,7 +85,7 @@ func compareEntries(a, b *fileEntry, rootA, rootB string) ([]string, []docxFileD
 
 	sizeDiffers := false
 	if !a.info.IsDir() && !b.info.IsDir() {
-		if useHashes {
+		if opts.useHashes {
 			if a.hash != b.hash {
 				changes = append(changes, fmt.Sprintf("hash: %s vs %s", a.hash[:12], b.hash[:12]))
 				if a.info.Size() != b.info.Size() {
@@ -109,7 +109,7 @@ func compareEntries(a, b *fileEntry, rootA, rootB string) ([]string, []docxFileD
 		docxDets = result.details
 	}
 
-	if useDate && !a.info.ModTime().Equal(b.info.ModTime()) {
+	if opts.useDate && !a.info.ModTime().Equal(b.info.ModTime()) {
 		changes = append(changes, fmt.Sprintf("modified: %s vs %s",
 			a.info.ModTime().Format("2006-01-02 15:04:05"),
 			b.info.ModTime().Format("2006-01-02 15:04:05")))

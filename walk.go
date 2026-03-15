@@ -18,7 +18,7 @@ type fileEntry struct {
 	hash    string
 }
 
-func walkTree(root string, ig *ignorer, label string) ([]fileEntry, error) {
+func walkTree(root string, ig *ignorer, label string, opts options) ([]fileEntry, error) {
 	var entries []fileEntry
 	count := 0
 
@@ -50,7 +50,7 @@ func walkTree(root string, ig *ignorer, label string) ([]fileEntry, error) {
 			relPath: rel,
 			info:    info,
 		}
-		if useHashes && !isDir {
+		if opts.useHashes && !isDir {
 			fmt.Fprintf(os.Stderr, "\r  Scanning %s: %d files (hashing)...", label, count)
 			entry.hash = hashFile(path)
 		} else {

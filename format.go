@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 
 	"golang.org/x/term"
 )
@@ -27,7 +28,7 @@ func truncatePath(path string, maxLen int) string {
 	return "..." + path[len(path)-(maxLen-3):]
 }
 
-func formatEntry(e fileEntry) string {
+func formatEntry(e fileEntry, opts options) string {
 	info := e.info
 	mode := info.Mode().String()
 	size := info.Size()
@@ -39,7 +40,7 @@ func formatEntry(e fileEntry) string {
 		typeIndicator = "@"
 	}
 
-	if useDate {
+	if opts.useDate {
 		mod := info.ModTime().Format("Jan _2 15:04")
 		return fmt.Sprintf("%s %8d %s %s%s", mode, size, mod, e.relPath, typeIndicator)
 	}
@@ -74,21 +75,20 @@ func colorCyan(s string) string {
 	return "\033[36m" + s + "\033[0m"
 }
 
-var ttyChecked bool
-var ttyResult bool
+var (
+	ttyOnce sync.Once
+	ttyVal  bool
+)
 
 func isTTY() bool {
-	if ttyChecked {
-		return ttyResult
-	}
-	ttyChecked = true
-	fi, err := os.Stdout.Stat()
-	if err != nil {
-		ttyResult = false
-		return false
-	}
-	ttyResult = (fi.Mode() & os.ModeCharDevice) != 0
-	return ttyResult
+	ttyOnce.Do(func() {
+		fi, err := os.Stdout.Stat()
+		if err != nil {
+			return
+		}
+		ttyVal = (fi.Mode() & os.ModeCharDevice) != 0
+	})
+	return ttyVal
 }
 
 func splitGroupAndFile(relPath string) (group string, file string) {
@@ -115,7 +115,7 @@ func sortDiffEntries(entries []diffEntry) {
 	})
 }
 
-func printDiffs(diffs []diffEntry) {
+func printDiffs(diffs []diffEntry, opts options) {
 	var onlyA, onlyB, changed, synced []diffEntry
 	for _, d := range diffs {
 		switch d.kind {
@@ -207,7 +207,7 @@ func printDiffs(diffs []diffEntry) {
 			}
 			fmt.Println(colorYellow(fmt.Sprintf("  %s  %-*s  %-*s  %-*s  %8d  %8d",
 				"~", detailMax, detail, groupMax, truncatePath(group, groupMax), fileMax, truncatePath(file, fileMax), d.entryA.info.Size(), d.entryB.info.Size())))
-			if verbose && len(d.docxDetails) > 0 {
+			if opts.verbose && len(d.docxDetails) > 0 {
 				for _, dd := range d.docxDetails {
 					fmt.Println(colorYellow(fmt.Sprintf("      %-8s  %s  (%s)",
 						categoryLabel(dd.category), dd.name, dd.reason)))
