@@ -98,6 +98,14 @@ func readZipEntry(r *zip.ReadCloser, name string) ([]byte, error) {
 	return nil, fmt.Errorf("not found: %s", name)
 }
 
+func extractDocxText(r *zip.ReadCloser, name string) (string, error) {
+	data, err := readZipEntry(r, name)
+	if err != nil {
+		return "", err
+	}
+	return extractPlainText(data), nil
+}
+
 func extractPlainText(xmlData []byte) string {
 	var buf strings.Builder
 	dec := xml.NewDecoder(strings.NewReader(string(xmlData)))
@@ -189,18 +197,14 @@ func analyzeDocx(pathA, pathB string) docxResult {
 		if !ok {
 			cat := categorizeDocxFile(name)
 			if cat == catText && textContentFiles[strings.ToLower(name)] {
-				dataA, errA := readZipEntry(rA, name)
-				if errA == nil {
-					textA := extractPlainText(dataA)
-					if textA == "" {
-						cat = catMeta
-						fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in A (empty)"})
-					} else {
-						diff := computeTextDiff(textA, "", name)
-						fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in A", textDiff: diff})
-					}
-				} else {
+				if textA, err := extractDocxText(rA, name); err != nil {
 					fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in A"})
+				} else if textA == "" {
+					cat = catMeta
+					fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in A (empty)"})
+				} else {
+					diff := computeTextDiff(textA, "")
+					fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in A", textDiff: diff})
 				}
 			} else {
 				fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in A"})
@@ -211,16 +215,14 @@ func analyzeDocx(pathA, pathB string) docxResult {
 		if a.hash != b.hash {
 			cat := categorizeDocxFile(name)
 			if cat == catText && textContentFiles[strings.ToLower(name)] {
-				dataA, errA := readZipEntry(rA, name)
-				dataB, errB := readZipEntry(rB, name)
+				textA, errA := extractDocxText(rA, name)
+				textB, errB := extractDocxText(rB, name)
 				if errA == nil && errB == nil {
-					textA := extractPlainText(dataA)
-					textB := extractPlainText(dataB)
 					if textA == textB {
 						cat = catStyle
 						fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "markup only (text identical)"})
 					} else {
-						diff := computeTextDiff(textA, textB, name)
+						diff := computeTextDiff(textA, textB)
 						fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "text content differs", textDiff: diff})
 					}
 				} else {
@@ -236,18 +238,14 @@ func analyzeDocx(pathA, pathB string) docxResult {
 		if _, ok := mapA[name]; !ok {
 			cat := categorizeDocxFile(name)
 			if cat == catText && textContentFiles[strings.ToLower(name)] {
-				dataB, errB := readZipEntry(rB, name)
-				if errB == nil {
-					textB := extractPlainText(dataB)
-					if textB == "" {
-						cat = catMeta
-						fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in B (empty)"})
-					} else {
-						diff := computeTextDiff("", textB, name)
-						fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in B", textDiff: diff})
-					}
-				} else {
+				if textB, err := extractDocxText(rB, name); err != nil {
 					fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in B"})
+				} else if textB == "" {
+					cat = catMeta
+					fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in B (empty)"})
+				} else {
+					diff := computeTextDiff("", textB)
+					fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in B", textDiff: diff})
 				}
 			} else {
 				fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in B"})
@@ -270,7 +268,7 @@ func isDocx(relPath string) bool {
 	return strings.ToLower(filepath.Ext(relPath)) == ".docx"
 }
 
-func computeTextDiff(textA, textB, name string) []string {
+func computeTextDiff(textA, textB string) []string {
 	linesA := strings.Split(textA, "\n")
 	linesB := strings.Split(textB, "\n")
 

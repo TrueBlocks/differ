@@ -58,33 +58,17 @@ func formatEntry(e fileEntry, opts options) string {
 	return fmt.Sprintf("%s %8d %s%s", mode, size, e.relPath, typeIndicator)
 }
 
-func colorRed(s string) string {
+func colorize(code, s string) string {
 	if !isTTY() {
 		return s
 	}
-	return "\033[31m" + s + "\033[0m"
+	return "\033[" + code + "m" + s + "\033[0m"
 }
 
-func colorGreen(s string) string {
-	if !isTTY() {
-		return s
-	}
-	return "\033[32m" + s + "\033[0m"
-}
-
-func colorYellow(s string) string {
-	if !isTTY() {
-		return s
-	}
-	return "\033[33m" + s + "\033[0m"
-}
-
-func colorCyan(s string) string {
-	if !isTTY() {
-		return s
-	}
-	return "\033[36m" + s + "\033[0m"
-}
+func colorRed(s string) string    { return colorize("31", s) }
+func colorGreen(s string) string  { return colorize("32", s) }
+func colorYellow(s string) string { return colorize("33", s) }
+func colorCyan(s string) string   { return colorize("36", s) }
 
 var (
 	ttyOnce sync.Once
