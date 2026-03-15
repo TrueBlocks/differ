@@ -24,6 +24,7 @@ func walkTree(root string, ig *ignorer, label string, opts options) ([]fileEntry
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: %s: %v\n", path, err)
 			return nil
 		}
 
@@ -33,6 +34,7 @@ func walkTree(root string, ig *ignorer, label string, opts options) ([]fileEntry
 
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: cannot compute relative path for %s: %v\n", path, err)
 			return nil
 		}
 		rel = norm.NFC.String(rel)
@@ -52,7 +54,11 @@ func walkTree(root string, ig *ignorer, label string, opts options) ([]fileEntry
 		}
 		if opts.useHashes && !isDir {
 			fmt.Fprintf(os.Stderr, "\r  Scanning %s: %d files (hashing)...", label, count)
-			entry.hash = hashFile(path)
+			h, err := hashFile(path)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: cannot hash %s: %v\n", rel, err)
+			}
+			entry.hash = h
 		} else {
 			fmt.Fprintf(os.Stderr, "\r  Scanning %s: %d files...", label, count)
 		}
@@ -76,16 +82,16 @@ func walkTree(root string, ig *ignorer, label string, opts options) ([]fileEntry
 	return entries, nil
 }
 
-func hashFile(path string) string {
+func hashFile(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return ""
+		return "", err
 	}
 	defer f.Close()
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		return ""
+		return "", err
 	}
-	return hex.EncodeToString(h.Sum(nil))
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

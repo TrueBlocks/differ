@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +36,7 @@ func newIgnorer(alwaysExclude []string, sourceRoot string) *ignorer {
 func (ig *ignorer) preload(root string) {
 	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: %s: %v\n", path, err)
 			return nil
 		}
 		if info.IsDir() {
@@ -42,7 +44,11 @@ func (ig *ignorer) preload(root string) {
 			if ig.alwaysExclude[name] && path != root {
 				return filepath.SkipDir
 			}
-			rel, _ := filepath.Rel(root, path)
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: cannot compute relative path for %s: %v\n", path, err)
+				return nil
+			}
 			ig.loadGitignore(path, rel)
 			return nil
 		}
@@ -129,6 +135,9 @@ func (ig *ignorer) loadGitignore(absDir string, relDir string) {
 
 		p.pattern = line
 		patterns = append(patterns, p)
+	}
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: reading %s: %v\n", gitignorePath, err)
 	}
 
 	if len(patterns) > 0 {

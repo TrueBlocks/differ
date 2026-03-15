@@ -75,6 +75,13 @@ func computeDiff(listA, listB []fileEntry, rootA, rootB string, opts options) []
 	return diffs
 }
 
+func truncHash(h string) string {
+	if len(h) >= 12 {
+		return h[:12]
+	}
+	return h
+}
+
 func compareEntries(a, b *fileEntry, rootA, rootB string, opts options) ([]string, []docxFileDiff) {
 	var changes []string
 	var docxDets []docxFileDiff
@@ -87,7 +94,7 @@ func compareEntries(a, b *fileEntry, rootA, rootB string, opts options) ([]strin
 	if !a.info.IsDir() && !b.info.IsDir() {
 		if opts.useHashes {
 			if a.hash != b.hash {
-				changes = append(changes, fmt.Sprintf("hash: %s vs %s", a.hash[:12], b.hash[:12]))
+				changes = append(changes, fmt.Sprintf("hash: %s vs %s", truncHash(a.hash), truncHash(b.hash)))
 				if a.info.Size() != b.info.Size() {
 					sizeDiffers = true
 					changes = append(changes, fmt.Sprintf("size: %d vs %d", a.info.Size(), b.info.Size()))

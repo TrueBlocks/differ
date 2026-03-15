@@ -7,6 +7,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -140,7 +141,11 @@ func analyzeDocx(pathA, pathB string) docxResult {
 	rA, errA := zip.OpenReader(pathA)
 	rB, errB := zip.OpenReader(pathB)
 	if errA != nil || errB != nil {
-		return docxResult{label: "docx:err"}
+		openErr := errA
+		if openErr == nil {
+			openErr = errB
+		}
+		return docxResult{label: fmt.Sprintf("docx:err (%v)", openErr)}
 	}
 	defer rA.Close()
 	defer rB.Close()
@@ -153,7 +158,10 @@ func analyzeDocx(pathA, pathB string) docxResult {
 	buildMap := func(r *zip.ReadCloser) map[string]entryInfo {
 		m := make(map[string]entryInfo)
 		for _, f := range r.File {
-			h, _ := hashZipEntry(f)
+			h, err := hashZipEntry(f)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: cannot hash zip entry %s: %v\n", f.Name, err)
+			}
 			m[f.Name] = entryInfo{size: f.UncompressedSize64, hash: h}
 		}
 		return m
