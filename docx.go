@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/TrueBlocks/trueblocks-art/packages/docxzip"
 )
 
 const (
@@ -84,22 +86,8 @@ func hashZipEntry(f *zip.File) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func readZipEntry(r *zip.ReadCloser, name string) ([]byte, error) {
-	for _, f := range r.File {
-		if f.Name == name {
-			rc, err := f.Open()
-			if err != nil {
-				return nil, err
-			}
-			defer rc.Close()
-			return io.ReadAll(rc)
-		}
-	}
-	return nil, fmt.Errorf("not found: %s", name)
-}
-
-func extractDocxText(r *zip.ReadCloser, name string) (string, error) {
-	data, err := readZipEntry(r, name)
+func extractDocxText(path, name string) (string, error) {
+	data, err := docxzip.ReadFile(path, name)
 	if err != nil {
 		return "", err
 	}
@@ -197,7 +185,7 @@ func analyzeDocx(pathA, pathB string) docxResult {
 		if !ok {
 			cat := categorizeDocxFile(name)
 			if cat == catText && textContentFiles[strings.ToLower(name)] {
-				if textA, err := extractDocxText(rA, name); err != nil {
+				if textA, err := extractDocxText(pathA, name); err != nil {
 					fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in A"})
 				} else if textA == "" {
 					cat = catMeta
@@ -215,8 +203,8 @@ func analyzeDocx(pathA, pathB string) docxResult {
 		if a.hash != b.hash {
 			cat := categorizeDocxFile(name)
 			if cat == catText && textContentFiles[strings.ToLower(name)] {
-				textA, errA := extractDocxText(rA, name)
-				textB, errB := extractDocxText(rB, name)
+				textA, errA := extractDocxText(pathA, name)
+				textB, errB := extractDocxText(pathB, name)
 				if errA == nil && errB == nil {
 					if textA == textB {
 						cat = catStyle
@@ -238,7 +226,7 @@ func analyzeDocx(pathA, pathB string) docxResult {
 		if _, ok := mapA[name]; !ok {
 			cat := categorizeDocxFile(name)
 			if cat == catText && textContentFiles[strings.ToLower(name)] {
-				if textB, err := extractDocxText(rB, name); err != nil {
+				if textB, err := extractDocxText(pathB, name); err != nil {
 					fileDiffs = append(fileDiffs, docxFileDiff{name: name, category: cat, reason: "only in B"})
 				} else if textB == "" {
 					cat = catMeta
