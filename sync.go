@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	appkit "github.com/TrueBlocks/trueblocks-art/packages/appkit/v2"
 )
 
 func syncDocxNotText(diffs []diffEntry, rootA, rootB string) {
@@ -22,7 +23,7 @@ func syncDocxNotText(diffs []diffEntry, rootA, rootB string) {
 		srcPath := filepath.Join(rootA, d.relPath)
 		dstPath := filepath.Join(rootB, d.relPath)
 
-		if err := copyFile(srcPath, dstPath); err != nil {
+		if err := appkit.CopyFile(srcPath, dstPath); err != nil {
 			fmt.Fprintf(os.Stderr, "  sync error: %s: %s\n", d.relPath, err)
 			continue
 		}
@@ -84,27 +85,3 @@ func syncModes(diffs []diffEntry, rootA, rootB string) {
 	}
 }
 
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	info, err := in.Stat()
-	if err != nil {
-		return err
-	}
-
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode())
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-
-	return out.Close()
-}

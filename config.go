@@ -1,9 +1,10 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
+
+	appkit "github.com/TrueBlocks/trueblocks-art/packages/appkit/v2"
 )
 
 type config struct {
@@ -32,13 +33,8 @@ func loadConfig() config {
 		return cfg
 	}
 
-	data, err := os.ReadFile(path)
+	fileCfg, err := appkit.LoadJSON(path, config{})
 	if err != nil {
-		return cfg
-	}
-
-	var fileCfg config
-	if err := json.Unmarshal(data, &fileCfg); err != nil {
 		return cfg
 	}
 
